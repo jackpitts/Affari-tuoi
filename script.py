@@ -217,7 +217,7 @@ def render_interfaccia_live(tracker):
     n_tot_rimasti = len(tracker.pacchi_rimasti) + 1
     
     print(f"{CLR_GIALLO}" + "=" * 78 + f"{CLR_RESET}")
-    print(f" {CLR_VIOLA}      AFFARI TUOI - CONSOLLE OTTIMIZZATA (MEMORIA STORICA ATTIVA){CLR_RESET}")
+    print(f" {CLR_VIOLA}      AFFARI TUOI - CONSOLE OTTIMIZZATA (MEMORIA STORICA ATTIVA){CLR_RESET}")
     print(f"{CLR_GIALLO}" + "=" * 78 + f"{CLR_RESET}")
     print(f" Il tuo Pacco attuale: {CLR_CYAN}[{tracker.pacco_giocatore}]{CLR_RESET} | Numeri in gioco in studio: {CLR_GIALLO}{sorted(tracker.pacchi_rimasti)}{CLR_RESET}")
     print(f" Conteggio Pacchi Fisici Rimasti: {CLR_CYAN}{n_tot_rimasti} su 20{CLR_RESET}")
@@ -258,7 +258,7 @@ def render_interfaccia_live(tracker):
         print(f"  {b_str.ljust(44)} |  {r_str}")
         
     print("-" * 78)
-    print(f" >>> VALORE ATTESO REALE (Solo premi certi conosciuti): {CLR_VERDE}€ {ev:,.2f}{CLR_RESET} <<<")
+    print(f" >>> VALORE ATTESO REALE EV (Solo premi certi conosciuti): {CLR_VERDE}€ {ev:,.2f}{CLR_RESET} <<<")
     print(f"{CLR_GIALLO}" + "=" * 78 + f"{CLR_RESET}")
 
 # =====================================================================
@@ -292,11 +292,11 @@ def main():
                 tracker.pacchi_cambiati_log
             )
 
-        print(f" {CLR_VIOLA}[MENU LIVE CONSOLLE]{CLR_RESET}")
-        print("  1 -> Elimina un premio uscito in TV (Blu o Rosso Puro)")
-        print("  2 -> È STATO APERTO IL PACCO NERO")
-        print("  3 -> Il Dottore offre dei SOLDI")
-        print("  4 -> Il Dottore offre il CAMBIO PACCO")
+        print(f" {CLR_VIOLA}[MENU LIVE CONSOLE]{CLR_RESET}")
+        print("  1 -> Elimina un premio uscito")
+        print("  2 -> È stato aperto il pacco nero")
+        print("  3 -> Il Dottore offre dei soldi")
+        print("  4 -> Il Dottore offre il cambio")
         print("  0 -> Chiudi programma")
         
         scelta = input("\nSeleziona l'azione: ").strip()

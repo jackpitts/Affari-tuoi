@@ -37,12 +37,19 @@ class ConsulenteStatistico:
     def conta_colori_puri(premi_rimasti):
         blu = sum(1 for k in premi_rimasti.keys() if k in ORDINE_BLU)
         rossi = sum(1 for k in premi_rimasti.keys() if k in ORDINE_ROSSI)
+        
+        # Se il Pacco Nero è ancora in gioco (chiuso), si comporta come 1 Rosso Teorico (media ~30k)
+        if "Pacco Nero" in premi_rimasti and premi_rimasti["Pacco Nero"] == "NEUTRO":
+            rossi += 1
+            
         return blu, rossi
 
     @staticmethod
     def mostra_analisi_dettagliata_offerta(premi_rimasti, offerta, coefficiente_avversione=0.55):
+        # conta_colori_puri aggiunge in automatico 1 Rosso se il Pacco Nero è chiuso
         n_blu, n_rossi = ConsulenteStatistico.conta_colori_puri(premi_rimasti)
-        pacco_nero_presente = "Pacco Nero" in premi_rimasti
+        pacco_nero_presente = "Pacco Nero" in premi_rimasti and premi_rimasti["Pacco Nero"] == "NEUTRO"
+        
         n_tot_calcolabili = n_blu + n_rossi
         
         ev = ConsulenteStatistico.calcola_valore_atteso(premi_rimasti)
@@ -56,21 +63,32 @@ class ConsulenteStatistico:
                 val_sicuro = p if p > 0 else 0.01
                 utilita_tabellone += math.pow(val_sicuro, 1 - coefficiente_avversione)
         
+        # Se il Pacco Nero è chiuso, aggiungiamo la sua utilità basandoci sul valore stimato di 30.000€
+        if pacco_nero_presente:
+            utilita_tabellone += math.pow(30000.0, 1 - coefficiente_avversione)
+        
         utilita_media = utilita_tabellone / n_tot_calcolabili if n_tot_calcolabili > 0 else 0
         utilita_offerta = math.pow(offerta if offerta > 0 else 0.01, 1 - coefficiente_avversione)
         
         print(f"\n{CLR_VIOLA}🔬 --- REPORT ANALITICO: OFFERTA DEL DOTTORE ---{CLR_RESET}")
-        p_nero_str = f" | + {CLR_GIALLO}Pacco Nero Ignoto{CLR_RESET}" if pacco_nero_presente else ""
-        print(f" • Composizione Certificata: {CLR_BLU}{n_blu} Blu ({prob_blu:.1f}%){CLR_RESET} | {CLR_ROSSO}{n_rossi} Rossi ({prob_rossi:.1f}%){CLR_RESET}{p_nero_str}")
+        p_nero_str = f" | + {CLR_GIALLO}Pacco Nero Stimato (1 Rosso Teorico a €30k){CLR_RESET}" if pacco_nero_presente else ""
+        print(f" • Composizione Certificata (Incluso Nero): {CLR_BLU}{n_blu} Blu ({prob_blu:.1f}%){CLR_RESET} | {CLR_ROSSO}{n_rossi} Rossi ({prob_rossi:.1f}%){CLR_RESET}{p_nero_str}")
         print(f" • Valore Atteso Matematico dei noti (EV): € {ev:,.2f}")
         print(f" • Offerta Esaminata: € {offerta:,}")
         print(f" • Rapporto di Copertura dell'Offerta: {CLR_GIALLO}{percentuale_ev:.2f}% dell'EV{CLR_RESET}")
         print("-" * 60)
+        print(f" {CLR_CYAN}FORMULE E MODELLO MATEMATICO DETTAGLIATO:{CLR_RESET}")
+        print(f"  -> Valore Atteso: EV = (1/n) * ∑_{{i=1}}^{{n}} x_i = € {ev:,.2f}")
+        print(f"  -> Funzione Utilità (CRRA): U(x) = (x^(1 - r)) / (1 - r)  [Parametro r = {coefficiente_avversione}]")
+        print(f"  -> Utilità Offerta Sicura:  U(Offerta) = ({offerta}^(0.45)) / 0.45 = {utilita_offerta:.4f}")
+        print(f"  -> Utilità Attesa Tabellone: E[U] = ∑_{{i=1}}^{{n}} P(x_i) * U(x_i)")
+        print(f"                              E[U] = ∑_{{i=1}}^{{n}} (1/{n_tot_calcolabili}) * (x_i^(0.45) / 0.45) = {utilita_media:.4f}")
+        print("-" * 60)
         
         if utilita_offerta > utilita_media:
-            verdetto = f"{BG_VERDE} ACCETTA L'OFFERTA {CLR_RESET}\n{CLR_VERDE}MOTIVAZIONE: L'offerta copre bene l'utilità dei premi noti riducendo l'incertezza.{CLR_RESET}"
+            verdetto = f"{BG_VERDE} ACCETTA L'OFFERTA {CLR_RESET}\n{CLR_VERDE}MOTIVAZIONE: L'utilità certa dell'offerta è superiore all'utilità attesa (sommatoria delle probabilità) del tabellone: U(Offerta) > E[U].{CLR_RESET}"
         else:
-            verdetto = f"{BG_ROSSO} RIFIUTA L'OFFERTA {CLR_RESET}\n{CLR_ROSSO}MOTIVAZIONE: L'offerta è speculativa rispetto al patrimonio dei rossi certi rimasti.{CLR_RESET}"
+            verdetto = f"{BG_ROSSO} RIFIUTA L'OFFERTA {CLR_RESET}\n{CLR_ROSSO}MOTIVAZIONE: L'utilità attesa (sommatoria delle probabilità) del tabellone è superiore alla certezza dell'offerta: E[U] >= U(Offerta).{CLR_RESET}"
         
         print(f" {CLR_GIALLO}VERDETTO DEFINITIVO:{CLR_RESET}")
         print(f" {verdetto}\n")
@@ -102,8 +120,15 @@ class ConsulenteStatistico:
         print(f" • Rossi puri rimasti sul tabellone: {CLR_ROSSO}{n_rossi_attuali} su 9 complessivi{CLR_RESET}")
         print("-" * 60)
         print(f" {CLR_CYAN}PROBABILITÀ REALE DI CONTENERE UN PREMIO ROSSO PURO:{CLR_RESET}")
-        print(f"  -> Se TIENI il tuo pacco attuale (preso a quota {quota_al_momento_del_prelievo:.0f}): {CLR_GIALLO}{prob_mio_pacco_rosso:.2f}%{CLR_RESET} di probabilità che sia ROSSO")
-        print(f"  -> Se ACCETTI un pacco dal bancone attuale:        {CLR_GIALLO}{prob_pacco_studio_rosso:.2f}%{CLR_RESET} di probabilità che sia ROSSO")
+        print(f"  -> Se TIENI il tuo pacco attuale (preso a quota {quota_al_momento_del_prelievo:.0f}): {CLR_GIALLO}{prob_mio_pacco_rosso:.2f}%{CLR_RESET}")
+        print(f"  -> Se ACCETTI un pacco dal bancone attuale:        {CLR_GIALLO}{prob_pacco_studio_rosso:.2f}%{CLR_RESET}")
+        print("-" * 60)
+        print(f" {CLR_CYAN}FORMULE DI INFERENZA PROBABILISTICA VINCOLATA:{CLR_RESET}")
+        print(f"  -> P(Rosso|MioPacco) = Rossi_Origine / Quota_Origine")
+        # FIX RIGA 128: Utilizzata la variabile corretta 'quota_al_momento_del_prelievo'
+        print(f"                       = {rossi_al_momento_del_prelievo:.0f} / {quota_al_momento_del_prelievo:.0f} = {prob_mio_pacco_rosso/100:.4f} ({prob_mio_pacco_rosso:.2f}%)")
+        print(f"  -> P(Rosso|Bancone)  = [Rossi_Totali_Rimasti - P(Rosso|MioPacco)] / [Pacchi_Totali_Rimasti - 1]")
+        print(f"                       = [{n_rossi_attuali} - {prob_mio_pacco_rosso/100:.4f}] / {N_altri_pacchi_studio} = {prob_pacco_studio_rosso/100:.4f} ({prob_pacco_studio_rosso:.2f}%)")
         print("-" * 60)
         
         if n_rossi_attuali == 0:
@@ -120,22 +145,18 @@ class ConsulenteStatistico:
 
     @staticmethod
     def mostra_analisi_finalissima_due_pacchi(premi_rimasti, pacco_giocatore, pacco_studio, pacchi_cambiati_log):
-        # Estraiamo i due valori effettivi rimasti sul tabellone
         valori = []
         for k, v in premi_rimasti.items():
             if isinstance(v, (int, float)):
                 valori.append((v, k))
         
-        # Se non ci sono esattamente due premi calcolabili, interrompiamo
         if len(valori) != 2:
             return
             
-        # Ordiniamo i premi per capire qual è il più alto e qual è il più basso
         valori.sort(key=lambda x: x[0])
         premio_basso_val, premio_basso_nome = valori[0]
         premio_alto_val, premio_alto_nome = valori[1]
 
-        # Recuperiamo la probabilità storica che il pacco del giocatore sia un ROSSO PURO
         if not pacchi_cambiati_log:
             rossi_origine = 9.0
             quota_origine = 20.0
@@ -143,21 +164,20 @@ class ConsulenteStatistico:
             quota_origine, rossi_origine = pacchi_cambiati_log[-1]
             
         prob_mio_rosso = rossi_origine / quota_origine
+        caso_scelto = ""
 
-        # Definiamo la probabilità che il proprio pacco contenga il premio più alto
-        # Caso A: Sul tabellone ci sono 1 Blu e 1 Rosso
         if premio_basso_nome in ORDINE_BLU and premio_alto_nome in ORDINE_ROSSI:
             prob_alto_nel_mio = prob_mio_rosso
+            caso_scelto = f"1 Blu e 1 Rosso. Il premio Alto coincide con l'unico Rosso rimasto.\n  -> Formula: P(Alto|MioPacco) = P(Rosso|MioPacco) = {rossi_origine:.0f} / {quota_origine:.0f}"
             
-        # Caso B: Sul tabellone ci sono 2 Rossi (vince chi ha la densità storica maggiore di contenere un rosso generico)
         elif premio_basso_nome in ORDINE_ROSSI and premio_alto_nome in ORDINE_ROSSI:
-            prob_alto_nel_mio = 0.50 + (prob_mio_rosso * 0.05) # Correzione statistica di ponderazione
+            prob_alto_nel_mio = 0.50 + (prob_mio_rosso * 0.05)
+            caso_scelto = f"2 Rossi rimasti. Entrambi i pacchi hanno un premio importante.\n  -> Formula (Ponderazione Storica): P(Alto|MioPacco) = 0.50 + (P(Rosso|MioPacco) * 0.05)"
             
-        # Caso C: Sul tabellone ci sono 2 Blu (equilibrio perfetto di probabilità)
         else:
             prob_alto_nel_mio = 0.50
+            caso_scelto = f"2 Blu rimasti. Perfetta simmetria di premi negativi.\n  -> Formula: P(Alto|MioPacco) = 0.50 (Equilibrio stocastico)"
 
-        # Controllo dei limiti matematici
         if prob_alto_nel_mio > 1.0: prob_alto_nel_mio = 0.95
         if prob_alto_nel_mio < 0.0: prob_alto_nel_mio = 0.05
         
@@ -170,6 +190,11 @@ class ConsulenteStatistico:
         print(f" {CLR_CYAN}PROBABILITÀ STATISTICA DI CONTENERE IL PREMIO PIÙ ALTO (€ {premio_alto_val:,}):{CLR_RESET}")
         print(f"  -> Nel TUO pacco attuale [{pacco_giocatore}]: {CLR_VERDE if prob_alto_nel_mio >= prob_alto_nel_banco else CLR_GIALLO}{prob_alto_nel_mio*100:.2f}%{CLR_RESET}")
         print(f"  -> Nel pacco sul BANCONE [{pacco_studio}]: {CLR_VERDE if prob_alto_nel_banco > prob_alto_nel_mio else CLR_GIALLO}{prob_alto_nel_banco*100:.2f}%{CLR_RESET}")
+        print("-" * 60)
+        print(f" {CLR_CYAN}MODELLO MATEMATICO APPLICATO (MONTY HALL COMPLETO):{CLR_RESET}")
+        print(f"  -> Scenario: {caso_scelto}")
+        print(f"  -> Risultato Mio Pacco: P(Alto|MioPacco) = {prob_alto_nel_mio*100:.2f}%")
+        print(f"  -> Risultato Bancone:   P(Alto|Bancone)  = 1.0 - P(Alto|MioPacco) = {prob_alto_nel_banco*100:.2f}%")
         print("-" * 60)
         
         if abs(prob_alto_nel_mio - prob_alto_nel_banco) < 0.001:
@@ -247,11 +272,7 @@ def render_interfaccia_live(tracker):
             else: r_str = f"\033[90mX {chiave_r}\033[0m"
         elif i == 9: 
             if "Pacco Nero" in tracker.premi_rimasti:
-                stato_nero = tracker.premi_rimasti["Pacco Nero"]
-                if stato_nero == "NEUTRO":
-                    r_str = f"{CLR_GIALLO}● Pacco Nero (In Gioco - Neutro){CLR_RESET}"
-                else:
-                    r_str = f"\033[90mX Pacco Nero (Aperto - Conteneva: {stato_nero}){CLR_RESET}"
+                r_str = f"{CLR_GIALLO}● Pacco Nero (In Gioco - Neutro){CLR_RESET}"
             else:
                 r_str = f"\033[90mX Pacco Nero (Aperto ed Eliminato)\033[0m"
             
@@ -282,7 +303,6 @@ def main():
         render_interfaccia_live(tracker)
         n_tot_rimasti = len(tracker.pacchi_rimasti) + 1
         
-        # INTERCETTATORE FINALE: Se mancano solo 2 pacchi totali, stampa l'analisi predittiva automatica
         if n_tot_rimasti == 2:
             pacco_studio_rimasto = tracker.pacchi_rimasti[0]
             ConsulenteStatistico.mostra_analisi_finalissima_due_pacchi(
@@ -293,7 +313,7 @@ def main():
             )
 
         print(f" {CLR_VIOLA}[MENU LIVE CONSOLE]{CLR_RESET}")
-        print("  1 -> Elimina un premio uscito")
+        print("  1 -> ... Elimina un premio uscito")
         print("  2 -> È stato aperto il pacco nero")
         print("  3 -> Il Dottore offre dei soldi")
         print("  4 -> Il Dottore offre il cambio")
@@ -303,7 +323,6 @@ def main():
         
         if scelta == "1":
             try:
-                # 1. Chiede il numero del pacco fisico con controllo duplicati
                 npacco = int(input("\nQuale numero di pacco fisico è stato aperto? "))
                 if npacco == tracker.pacco_giocatore:
                     print(f"{CLR_ROSSO}Errore: Il pacco {npacco} è quello in possesso del giocatore!{CLR_RESET}")
@@ -314,7 +333,6 @@ def main():
                     input("Premi INVIO per continuare...")
                     continue
                 
-                # 2. Chiede il valore/nome del premio con controllo presenza
                 chiave = input("Scrivi il NOME o il VALORE del premio trovato dentro: ").strip()
                 
                 if chiave == "Pacco Nero":
@@ -327,7 +345,6 @@ def main():
                     input("Premi INVIO per continuare...")
                     continue
                     
-                # Se i controlli passano, elimina il premio e il pacco
                 if tracker.elimina_premio_dal_tabellone(chiave):
                     tracker.pacchi_rimasti.remove(npacco)
             except ValueError:
@@ -337,7 +354,6 @@ def main():
         elif scelta == "2":
             if "Pacco Nero" in tracker.premi_rimasti and tracker.premi_rimasti["Pacco Nero"] == "NEUTRO":
                 try:
-                    # 1. Chiede il numero del pacco fisico con controllo duplicati
                     npacco = int(input("\nQuale numero di pacco fisico conteneva il Pacco Nero? "))
                     if npacco == tracker.pacco_giocatore:
                         print(f"{CLR_ROSSO}Errore: Il pacco {npacco} è quello in possesso del giocatore!{CLR_RESET}")
@@ -348,13 +364,12 @@ def main():
                         input("Premi INVIO per continuare...")
                         continue
                     
-                    # 2. Chiede il valore estratto (SENZA blocchi o controlli sul testo inserito)
                     valore_estratto = input("Quale valore/premio è uscito dal Pacco Nero? ").strip()
                     
-                    tracker.premi_rimasti["Pacco Nero"] = valore_estratto
+                    del tracker.premi_rimasti["Pacco Nero"]
                     tracker.pacchi_rimasti.remove(npacco)
                         
-                    print(f"{CLR_VERDE}Registrato. Il Pacco Nero è stato escluso dai calcoli matematici.{CLR_RESET}")
+                    print(f"{CLR_VERDE}Registrato. Il Pacco Nero è stato aperto ed ELIMINATO dal tabellone.{CLR_RESET}")
                 except ValueError:
                     print(f"{CLR_ROSSO}Errore: Inserisci un numero valido per il pacco!{CLR_RESET}")
             else:
